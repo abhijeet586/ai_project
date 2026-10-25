@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryoVision | GLOF Risk Monitor</title>
+    <link rel="icon" type="image/svg+xml" href="logo_icon.svg">
+    <meta name="description"
+        content="Multi-temporal glacial lake outburst flood risk monitoring using deep learning and Sentinel-2 satellite imagery.">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+
+<body>
+    <div id="map"></div>
+    
+    <!-- Top Left Controls (Region & Basemap) -->
+    <div class="top-left-controls">
+        <select id="quick-region" class="glass-select">
+            <option value="" disabled selected>Fly to a region...</option>
+            <option value="Khumbu">Khumbu, Nepal</option>
+            <option value="Sikkim">Sikkim, India</option>
+            <option value="Langtang">Langtang, Nepal</option>
+            <option value="Manaslu">Manaslu, Nepal</option>
+            <option value="Bhutan">Bhutan Himalayas</option>
+        </select>
+        <select id="basemap-select" class="glass-select">
+            <option value="carto-dark" selected>🌑 CartoDB Dark (Original)</option>
+            <option value="satellite">🛰️ Satellite (Esri)</option>
+            <option value="carto-voyager">🗺️ CartoDB Voyager</option>
+            <option value="osm">🗺️ Street View (OSM)</option>
+        </select>
+    </div>
+
+    <div id="sidebar" class="glass-panel">
+        <header>
+            <div class="logo-row">
+                <div class="logo-icon">
+                    <img src="logo_icon.svg" alt="CryoVision Logo" class="brand-logo-img" />
+                </div>
+                <div>
+                    <h1 class="brand-title">CRYOVISION</h1>
+                    <p class="tagline">GLOF Risk Monitor</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Live Scanner -->
+        <section class="module">
+            <div class="module-header">
+                <h2>🛰️ Live Scanner</h2>
+            </div>
+            <p class="subtitle">Draw a bounding box (~10km) on the map. CryoVision will detect lakes, assess GLOF risk,
+                and show the historical timeline for that region.</p>
+            <div class="controls">
+                <label for="year-select">Target Year:</label>
+                <select id="year-select">
+                    <option value="2024">2024</option>
+                    <option value="2023">2023</option>
+                    <option value="2022">2022</option>
+                    <option value="2021">2021</option>
+                    <option value="2020">2020</option>
+                </select>
+            </div>
+            <div id="status" class="status-msg hidden"></div>
+        </section>
+
+        <!-- Results (hidden until scan) -->
+        <div id="results-container" class="hidden">
+            <!-- Scan Summary -->
+            <section class="module" id="summary-module">
+                <div class="module-header">
+                    <h2>📍 Scan Results</h2>
+                    <span class="badge accent" id="lake-count">—</span>
+                </div>
+                <div id="scan-summary" class="scan-summary"></div>
+            </section>
+
+            <!-- Risk Alerts Panel -->
+            <section class="module" id="risk-module">
+                <div class="module-header">
+                    <h2>⚠️ GLOF Risk Alerts</h2>
+                    <span class="badge critical" id="alert-count">—</span>
+                </div>
+                <p class="subtitle">Lakes flagged for rapid expansion and outburst risk.</p>
+                <div id="risk-list" class="risk-list"></div>
+            </section>
+
+            <!-- Historical Timeline -->
+            <section class="module">
+                <div class="module-header">
+                    <h2>📊 Area Timeline</h2>
+                </div>
+                <p class="subtitle">Total lake area (km²) in the nearest precomputed region.</p>
+                <div class="chart-container">
+                    <canvas id="historyChart"></canvas>
+                </div>
+                <div class="legend-info">
+                    <span class="legend-unet">● U-Net Model</span>
+                    <span class="legend-ndwi">● NDWI Baseline</span>
+                </div>
+            </section>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="empty-state">
+            <div class="empty-icon">🗺️</div>
+            <p>Use the <strong>rectangle tool</strong> on the left side of the map to scan a region.</p>
+            <p class="hint">Navigate to the Himalayas and draw a box over a glacial valley to begin.</p>
+        </div>
+
+        <footer>
+            <p>Powered by Sentinel-2 · U-Net · Earth Engine</p>
+        </footer>
+    </div>
+
+    <!-- Lake Timeline Panel -->
+    <div id="timeline-panel" class="glass-timeline hidden">
+        <div class="timeline-header">
+            <h3 id="timeline-title">Lake Timeline</h3>
+            <button id="close-timeline" class="close-btn" onclick="document.getElementById('timeline-panel').classList.add('hidden')">✕</button>
+        </div>
+        <div id="timeline-summary" class="timeline-summary"></div>
+        <div id="timeline-list" class="timeline-list"></div>
+        <div class="timeline-year-legend">
+            <span style="color:#94a3b8;">● 2019</span>
+            <span style="color:#818cf8;">● 2020</span>
+            <span style="color:#38bdf8;">● 2021</span>
+            <span style="color:#34d399;">● 2022</span>
+            <span style="color:#eab308;">● 2023</span>
+            <span style="color:#f97316;">● 2024</span>
+            <span style="color:#ef4444;">● 2025</span>
+        </div>
+    </div>
+
+    <!-- Risk Legend -->
+    <div id="risk-legend" class="glass-legend">
+        <h3>GLOF Risk Level</h3>
+        <div class="legend-item"><span class="dot critical-dot"></span> Critical (≥70)</div>
+        <div class="legend-item"><span class="dot high-dot"></span> High (40–69)</div>
+        <div class="legend-item"><span class="dot moderate-dot"></span> Moderate (20–39)</div>
+        <div class="legend-item"><span class="dot low-dot"></span> Low (&lt;20)</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js?v=3"></script>
+</body>
+
+</html>

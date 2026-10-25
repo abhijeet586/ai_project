@@ -1,0 +1,32 @@
+name: cryovision
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - opencv
+  - rasterio
+  - gdal
+  - geopandas
+  - shapely
+  - pyproj
+  - fiona
+  - earthengine-api
+  - geemap
+  - scikit-learn
+  - scikit-image
+  - matplotlib
+  - tqdm
+  - pyyaml
+  - fastapi
+  - uvicorn
+  - sqlalchemy
+  - jupyterlab
+  - pytest
+  - kaggle
+  - tensorboard
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cpu
+      - torch
+      - torchvision
